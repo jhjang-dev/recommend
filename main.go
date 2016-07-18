@@ -140,7 +140,7 @@ func analysis(customer_id string, mall_id string) {
 					}()
 				}
 
-				t_sql := fmt.Sprintf("INSERT INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,match_no) VALUES('%s','%s','%s','%s',NOW(),NOW(),'%d');\n", customer_id, m_id, category_id, c_code, match_int)
+				t_sql := fmt.Sprintf("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,match_no) VALUES('%s','%s','%s','%s',NOW(),NOW(),'%d');\n", customer_id, m_id, category_id, c_code, match_int)
 				file.WriteString(t_sql)
 
 			}
@@ -233,7 +233,7 @@ func analysis2(customer_id string, mall_id string) {
 						}()
 					}
 
-					t_sql := fmt.Sprintf("INSERT INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,match_no) VALUES('%s','%s','%s','%s',NOW(),NOW(),'%d');\n", customer_id, m_id, category_id, c_code, match_int)
+					t_sql := fmt.Sprintf("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,match_no) VALUES('%s','%s','%s','%s',NOW(),NOW(),'%d');\n", customer_id, m_id, category_id, c_code, match_int)
 					file.WriteString(t_sql)
 
 				}
