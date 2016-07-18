@@ -81,6 +81,7 @@ func analysis(customer_id string, mall_id string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer t_rows.Close()
 
 	for t_rows.Next() {
 		var category_name string
@@ -107,6 +108,7 @@ func analysis(customer_id string, mall_id string) {
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer rows.Close()
 
 		for rows.Next() {
 			var m_id string
@@ -144,10 +146,10 @@ func analysis(customer_id string, mall_id string) {
 			}
 
 		}
-		rows.Close()
+
 
 	}
-	t_rows.Close()
+
 
 }
 
@@ -299,24 +301,24 @@ func main() {
 
 	analysis(*customer_id, *mall_id)
 
-	// fmt.Println("DB Work Start ...")
+	fmt.Println("DB Work Start ...")
 
-	// if *mall_id == "" {
-	// 	_, err = db.Query("delete from category_customer_mall_match where customer_id=?", customer_id)
-	// } else {
-	// 	_, err = db.Query("delete from category_customer_mall_match where customer_id=? and mall_id=?", customer_id, mall_id)
-	// }
+	if *mall_id == "" {
+		_, err = db.Query("delete from category_customer_mall_match where customer_id=?", customer_id)
+	} else {
+		_, err = db.Query("delete from category_customer_mall_match where customer_id=? and mall_id=?", customer_id, mall_id)
+	}
 
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// sql_file := fmt.Sprintf("./sql/%s.sql", *customer_id)
-	// _, err = os.Open(sql_file)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// } else {
-	// 	cmd := fmt.Sprintf("mysql -h%s -u%s -p%s crawling_shoplinker < %s", *dbhost, *dbuser, *dbpass, sql_file)
-	// 	exec_cmd(cmd)
-	// }
+	sql_file := fmt.Sprintf("./sql/%s.sql", *customer_id)
+	_, err = os.Open(sql_file)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		cmd := fmt.Sprintf("mysql -h%s -u%s -p%s crawling_shoplinker < %s", *dbhost, *dbuser, *dbpass, sql_file)
+		exec_cmd(cmd)
+	}
 }
