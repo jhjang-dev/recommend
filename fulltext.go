@@ -181,8 +181,10 @@ func analysis_routine() {
 		var customer_id string
 		var cnt int
 		rows.Scan(&customer_id, &cnt)
+
 		matchProc(i, customer_id)
 		i++
+
 	}
 }
 
@@ -219,6 +221,7 @@ func main() {
 	db, err = sql.Open("mysql", dsn)
 	checkErr(err)
 	defer db.Close()
+
 	db.Query("SET NAMES utf8")
 
 	customer_id := flag.String("cid", "", "-cid=고객사아이디")
@@ -229,7 +232,15 @@ func main() {
 		flag.Usage()
 		return
 	}
+
+	if *customer_id == "" {
+		flag.Usage()
+		return
+	}
+
+	fmt.Printf("Start Process Customer : %v (%v)\n", *customer_id, time.Now())
 	analysis(*customer_id, *mall_id)
+	fmt.Printf("End Process Customer : %v (%v)\n", *customer_id, time.Now())
 
 	// args := os.Args
 	// if len(args) > 1 {
