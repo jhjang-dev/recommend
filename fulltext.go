@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/c4pt0r/ini"
 	_ "github.com/go-sql-driver/mysql"
@@ -29,6 +30,9 @@ var wg sync.WaitGroup
 var db *sql.DB
 var dsn string
 
+/**
+ * delimeter 기준으로 배열생성
+ */
 func regSplit(text string, delimeter string) []string {
 	reg := regexp.MustCompile(delimeter)
 	indexes := reg.FindAllStringIndex(text, -1)
@@ -45,6 +49,9 @@ func regSplit(text string, delimeter string) []string {
 	return result
 }
 
+/**
+ * 배열중복제거
+ */
 func removeDuplicates(elements []string) []string {
 	encountered := map[string]bool{}
 
@@ -59,6 +66,32 @@ func removeDuplicates(elements []string) []string {
 		result = append(result, key)
 	}
 	return result
+}
+
+/**
+ * 영문자 분리 (ex:컴퓨터PC => 컴퓨터 PC)
+ */
+func splitEng(word string) string {
+	r := regexp.MustCompile("[a-zA-Z]+")
+	words := strings.Fields(word)
+	str := []string{}
+	for _, w := range words {
+		eng := r.FindString(w)
+		pre := strings.TrimSpace(r.ReplaceAllString(w, ""))
+		tail := strings.TrimSpace(eng)
+
+		if pre != "" {
+			str = append(str, pre)
+		}
+
+		if tail != "" {
+			str = append(str, tail)
+		}
+
+	}
+	str = removeDuplicates(str)
+
+	return strings.Join(str, " ")
 }
 
 func analysis(customer_id string, mall_id string) {
@@ -83,23 +116,92 @@ func analysis(customer_id string, mall_id string) {
 		for _, dt := range target_category {
 			keywords = append(keywords, strings.TrimSpace(dt))
 		}
+		keywords = removeDuplicates(keywords)
 		keyword_str := strings.Join(keywords, " ")
-
-		var t_sql string
+		keyword_str = splitEng(keyword_str)
 
 		if mall_id == "" {
-			t_sql = fmt.Sprintf("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT '%s',mall_id,'%s',category_code,NOW(),NOW(),match(category_nm) against('%s' IN BOOLEAN MODE) as score from mall_category_info where match(category_nm) against('%s' IN BOOLEAN MODE)  > 0", customer_id, category_id, keyword_str, keyword_str)
+			stmt, err := db.Prepare("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,mall_id,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5")
+			checkErr(err)
+			defer stmt.Close()
+			_, er := stmt.Exec(customer_id, category_id, keyword_str, keyword_str, keyword_str)
+			if er != nil {
+				log.Fatal(er)
+			}
 		} else {
-			t_sql = fmt.Sprintf("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT '%s','%s','%s',category_code,NOW(),NOW(),match(category_nm) against('%s' IN BOOLEAN MODE) as score from mall_category_info where mall_id='%s' and match(category_nm) against('%s' IN BOOLEAN MODE)  > 0", customer_id, mall_id, category_id, keyword_str, mall_id, keyword_str)
-		}
-
-		_, err := db.Exec(t_sql)
-		if err != nil {
-			log.Fatal(err)
+			stmt, err := db.Prepare("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,?,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where mall_id=? and (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5")
+			checkErr(err)
+			defer stmt.Close()
+			_, er := stmt.Exec(customer_id, mall_id, category_id, keyword_str, mall_id, keyword_str, keyword_str)
+			if er != nil {
+				log.Fatal(er)
+			}
 		}
 
 	}
 
+}
+
+func matchProc(id int, customer_id string) {
+
+	fmt.Printf("Process Start Id : %v-%v (%v)\n", id, customer_id, time.Now())
+
+	var t_sql string
+	t_sql = fmt.Sprintf("select full_category_name, full_category_id from category_customer_flatten_vw where customer_id='%s'", customer_id)
+	t_rows, err := db.Query(t_sql)
+	defer t_rows.Close()
+
+	checkErr(err)
+
+	for t_rows.Next() {
+
+		var category_name string
+		var category_id string
+
+		t_rows.Scan(&category_name, &category_id)
+
+		target_category := regSplit(category_name, "[()/^&*_,>]+")
+
+		keywords := []string{}
+		for _, dt := range target_category {
+			keywords = append(keywords, strings.TrimSpace(dt))
+		}
+		keywords = removeDuplicates(keywords)
+		keyword_str := strings.Join(keywords, " ")
+		keyword_str = splitEng(keyword_str)
+
+		stmt, err := db.Prepare("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,mall_id,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where (match(category_nm) against(? IN BOOLEAN MODE)) >0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5")
+		checkErr(err)
+		defer stmt.Close()
+
+		_, er := stmt.Exec(customer_id, category_id, keyword_str, keyword_str, keyword_str)
+		checkErr(er)
+
+	}
+	fmt.Printf("Process Stop Id : %v-%v (%v)\n", id, customer_id, time.Now())
+}
+
+func analysis_routine() {
+
+	sql := "select customer_id,count(*) as cnt from category_customer where length(customer_id)>0 group by customer_id order by cnt asc"
+	rows, err := db.Query(sql)
+	defer rows.Close()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var i int
+	for rows.Next() {
+		var customer_id string
+		var cnt int
+		rows.Scan(&customer_id, &cnt)
+
+		matchProc(i, customer_id)
+
+		i++
+
+	}
 }
 
 func exec_cmd(cmd string) {
@@ -121,34 +223,37 @@ func init() {
 
 }
 
+func checkErr(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	var err error
 
+	db, err = sql.Open("mysql", dsn)
+	checkErr(err)
+	defer db.Close()
+
+	db.Query("SET NAMES utf8")
+
+	args := os.Args
 	customer_id := flag.String("cid", "", "-cid=고객사아이디")
 	mall_id := flag.String("mid", "", "-mid=몰아이디(옵션)")
 	flag.Parse()
 
-	if flag.NFlag() == 0 {
-		flag.Usage()
-		return
+	if len(args) > 1 {
+
+		if flag.NFlag() == 0 {
+			flag.Usage()
+			return
+		}
+		analysis(*customer_id, *mall_id)
+	} else {
+
+		analysis_routine()
 	}
-
-	db, err = sql.Open("mysql", dsn)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	db.Query("SET NAMES utf8")
-
-	if err = db.Ping(); err != nil {
-		defer func() {
-			fmt.Println(err)
-		}()
-		return
-	}
-	defer db.Close()
-
-	analysis(*customer_id, *mall_id)
 
 }
