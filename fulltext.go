@@ -221,8 +221,14 @@ func main() {
 	db, err = sql.Open("mysql", dsn)
 	checkErr(err)
 	defer db.Close()
-
 	db.Query("SET NAMES utf8")
+
+	if err = db.Ping(); err != nil {
+		defer func() {
+			fmt.Println(err)
+		}()
+		return
+	}
 
 	customer_id := flag.String("cid", "", "-cid=고객사아이디")
 	mall_id := flag.String("mid", "", "-mid=몰아이디(옵션)")
