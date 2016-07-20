@@ -29,6 +29,7 @@ var (
 var wg sync.WaitGroup
 var db *sql.DB
 var dsn string
+var patten string
 
 /**
  * delimeter 기준으로 배열생성
@@ -110,7 +111,7 @@ func analysis(customer_id string, mall_id string) {
 
 		rows.Scan(&category_name, &category_id)
 
-		target_category := regSplit(category_name, "[()/^&*_,>]+")
+		target_category := regSplit(category_name, patten)
 
 		keywords := []string{}
 		for _, dt := range target_category {
@@ -149,7 +150,7 @@ func matchProc(id int, customer_id string) {
 
 		t_rows.Scan(&category_name, &category_id)
 
-		target_category := regSplit(category_name, "[()/^&*_,>]+")
+		target_category := regSplit(category_name, patten)
 
 		keywords := []string{}
 		for _, dt := range target_category {
@@ -180,10 +181,8 @@ func analysis_routine() {
 		var customer_id string
 		var cnt int
 		rows.Scan(&customer_id, &cnt)
-
 		matchProc(i, customer_id)
 		i++
-
 	}
 }
 
@@ -204,6 +203,7 @@ func init() {
 	}
 	dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", *dbuser, *dbpass, *dbhost, *dbport, *dbname)
 
+	patten = "[()/^&*_,>-]+"
 }
 
 func checkErr(err error) {
@@ -219,24 +219,28 @@ func main() {
 	db, err = sql.Open("mysql", dsn)
 	checkErr(err)
 	defer db.Close()
-
 	db.Query("SET NAMES utf8")
 
-	args := os.Args
 	customer_id := flag.String("cid", "", "-cid=고객사아이디")
 	mall_id := flag.String("mid", "", "-mid=몰아이디(옵션)")
 	flag.Parse()
 
-	if len(args) > 1 {
-
-		if flag.NFlag() == 0 {
-			flag.Usage()
-			return
-		}
-		analysis(*customer_id, *mall_id)
-	} else {
-
-		analysis_routine()
+	if flag.NFlag() == 0 {
+		flag.Usage()
+		return
 	}
+	analysis(*customer_id, *mall_id)
+
+	// args := os.Args
+	// if len(args) > 1 {
+
+	// 	if flag.NFlag() == 0 {
+	// 		flag.Usage()
+	// 		return
+	// 	}
+	// 	analysis(*customer_id, *mall_id)
+	// } else {
+	// 	analysis_routine()
+	// }
 
 }
