@@ -262,9 +262,13 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Start Process Customer : %v (%v)\n", *customer_id, time.Now())
+	ago := time.Now()
 	analysis(*customer_id, *mall_id)
-	fmt.Printf("End Process Customer : %v (%v)\n", *customer_id, time.Now())
+	now := time.Now()
+
+	diff := now.Sub(ago)
+
+	fmt.Printf("Difference %v (Diff : %v)", *customer_id, diff)
 
 	// args := os.Args
 	// if len(args) > 1 {
