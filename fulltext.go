@@ -145,9 +145,8 @@ func insertData(customer_id string, mall_id string) {
 		keyword_str := strings.Join(keywords, " ")
 		keyword_str = splitEng(keyword_str)
 
-		_, err := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,?,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where mall_id=? and (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, mall_id, category_id, keyword_str, mall_id, keyword_str, keyword_str)
+		_, err := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank,cust_category,mall_category) SELECT ?,?,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score,?,category_nm from mall_category_info where mall_id=? and (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, mall_id, category_id, keyword_str, category_name, mall_id, keyword_str, keyword_str)
 		checkErr(err)
-
 	}
 }
 
@@ -178,8 +177,9 @@ func matchProc(id int, customer_id string) {
 		keyword_str := strings.Join(keywords, " ")
 		keyword_str = splitEng(keyword_str)
 
-		_, err := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank,cust_category,mall_category) SELECT ?,?,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score,?,category_nm from mall_category_info where mall_id=? and (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, mall_id, category_id, keyword_str, category_name, mall_id, keyword_str, keyword_str)
-		checkErr(err)
+		_, er := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,mall_id,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where (match(category_nm) against(? IN BOOLEAN MODE)) >0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, category_id, keyword_str, keyword_str, keyword_str)
+		checkErr(er)
+
 	}
 	fmt.Printf("Process Stop Id : %v-%v (%v)\n", id, customer_id, time.Now())
 }
