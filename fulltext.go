@@ -150,62 +150,6 @@ func insertData(customer_id string, mall_id string) {
 	}
 }
 
-func matchProc(id int, customer_id string) {
-
-	fmt.Printf("Process Start Id : %v-%v (%v)\n", id, customer_id, time.Now())
-
-	var t_sql string
-	t_sql = fmt.Sprintf("select full_category_name, full_category_id from category_customer_flatten_vw where customer_id='%s'", customer_id)
-	t_rows, err := db.Query(t_sql)
-	defer t_rows.Close()
-	checkErr(err)
-
-	for t_rows.Next() {
-
-		var category_name string
-		var category_id string
-
-		t_rows.Scan(&category_name, &category_id)
-
-		target_category := regSplit(category_name, patten)
-
-		keywords := []string{}
-		for _, dt := range target_category {
-			keywords = append(keywords, strings.TrimSpace(dt))
-		}
-		keywords = removeDuplicates(keywords)
-		keyword_str := strings.Join(keywords, " ")
-		keyword_str = splitEng(keyword_str)
-
-		_, er := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,mall_id,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where (match(category_nm) against(? IN BOOLEAN MODE)) >0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, category_id, keyword_str, keyword_str, keyword_str)
-		checkErr(er)
-
-	}
-	fmt.Printf("Process Stop Id : %v-%v (%v)\n", id, customer_id, time.Now())
-}
-
-func analysis_routine() {
-
-	sql := "select customer_id,count(*) as cnt from category_customer where length(customer_id)>0 group by customer_id order by cnt asc"
-	rows, err := db.Query(sql)
-	defer rows.Close()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var i int
-	for rows.Next() {
-		var customer_id string
-		var cnt int
-		rows.Scan(&customer_id, &cnt)
-
-		matchProc(i, customer_id)
-		i++
-
-	}
-}
-
 func exec_cmd(cmd string) {
 	out, err := exec.Command("sh", "-c", cmd).Output()
 	if err != nil {
@@ -263,23 +207,12 @@ func main() {
 	}
 
 	ago := time.Now()
-	analysis(*customer_id, *mall_id)
-	now := time.Now()
 
+	analysis(*customer_id, *mall_id)
+
+	now := time.Now()
 	diff := now.Sub(ago)
 
 	fmt.Printf("Difference %v (Diff : %v)", *customer_id, diff)
-
-	// args := os.Args
-	// if len(args) > 1 {
-
-	// 	if flag.NFlag() == 0 {
-	// 		flag.Usage()
-	// 		return
-	// 	}
-	// 	analysis(*customer_id, *mall_id)
-	// } else {
-	// 	analysis_routine()
-	// }
 
 }
