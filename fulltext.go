@@ -213,6 +213,6 @@ func main() {
 	now := time.Now()
 	diff := now.Sub(ago)
 
-	fmt.Printf("Difference %v (Diff : %v)", *customer_id, diff)
+	fmt.Printf("Done %v (Work Time : %v)\n", *customer_id, diff)
 
 }
