@@ -96,7 +96,31 @@ func splitEng(word string) string {
 }
 
 func analysis(customer_id string, mall_id string) {
+	mall_array := []string{}
+	if mall_id == "" {
+		t_sql := "select mall_id from mall_category_info group by mall_id"
+		rows, err := db.Query(t_sql)
+		checkErr(err)
+		defer rows.Close()
 
+		for rows.Next() {
+			var mall_id string
+			rows.Scan(&mall_id)
+			mall_array = append(mall_array, mall_id)
+		}
+	}
+
+	if mall_id == "" {
+		for _, mid := range mall_array {
+			insertData(customer_id, mid)
+		}
+	} else {
+		insertData(customer_id, mall_id)
+	}
+
+}
+
+func insertData(customer_id string, mall_id string) {
 	sql := fmt.Sprintf("select full_category_name, full_category_id from category_customer_flatten_vw where customer_id='%s'", customer_id)
 	rows, err := db.Query(sql)
 	defer rows.Close()
@@ -121,16 +145,10 @@ func analysis(customer_id string, mall_id string) {
 		keyword_str := strings.Join(keywords, " ")
 		keyword_str = splitEng(keyword_str)
 
-		if mall_id == "" {
-			_, err := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,mall_id,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, category_id, keyword_str, keyword_str, keyword_str)
-			checkErr(err)
-		} else {
-			_, err := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,?,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where mall_id=? and (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, mall_id, category_id, keyword_str, mall_id, keyword_str, keyword_str)
-			checkErr(err)
-		}
+		_, err := db.Exec("INSERT IGNORE INTO category_customer_mall_match(customer_id,mall_id,cust_category_code,mall_category_code,register_date,update_date,rank) SELECT ?,?,?,category_code,NOW(),NOW(),match(category_nm) against(? IN BOOLEAN MODE) as score from mall_category_info where mall_id=? and (match(category_nm) against(? IN BOOLEAN MODE))>0 ORDER BY (match(category_nm) against(? IN BOOLEAN MODE)) DESC LIMIT 5", customer_id, mall_id, category_id, keyword_str, mall_id, keyword_str, keyword_str)
+		checkErr(err)
 
 	}
-
 }
 
 func matchProc(id int, customer_id string) {
@@ -197,6 +215,12 @@ func exec_cmd(cmd string) {
 
 }
 
+func checkErr(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func init() {
 
 	conf.Parse()
@@ -206,12 +230,6 @@ func init() {
 	dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", *dbuser, *dbpass, *dbhost, *dbport, *dbname)
 
 	patten = "[()/^&*_,>-]+"
-}
-
-func checkErr(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func main() {
