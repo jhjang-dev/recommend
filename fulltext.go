@@ -180,6 +180,9 @@ func main() {
 	defer db.Close()
 	db.Query("SET NAMES utf8")
 
+	db.Exec("SET SESSION NET_READ_TIMEOUT=10000")
+	db.Exec("SET SESSION NET_WRITE_TIMEOUT=10000")
+
 	if err = db.Ping(); err != nil {
 		defer func() {
 			fmt.Println(err)
