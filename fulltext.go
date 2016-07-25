@@ -96,7 +96,7 @@ func splitEng(word string) string {
 }
 
 func analysis(customer_id string, mall_id string) {
-	mall_array := []string{}
+
 	if mall_id == "" {
 		t_sql := "select mall_id from mall_category_info group by mall_id"
 		rows, err := db.Query(t_sql)
@@ -106,14 +106,9 @@ func analysis(customer_id string, mall_id string) {
 		for rows.Next() {
 			var mall_id string
 			rows.Scan(&mall_id)
-			mall_array = append(mall_array, mall_id)
+			insertData(customer_id, mall_id)
 		}
-	}
 
-	if mall_id == "" {
-		for _, mid := range mall_array {
-			insertData(customer_id, mid)
-		}
 	} else {
 		insertData(customer_id, mall_id)
 	}
