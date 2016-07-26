@@ -69,10 +69,13 @@ func main() {
 	fill := *xlsx.NewFill("solid", "D8D8D8", "D8D8D8")
 	font := *xlsx.NewFont(15, "Verdana")
 	border := *xlsx.NewBorder("thin", "thin", "thin", "thin")
+	align := *xlsx.DefaultAlignment()
+	align.Horizontal = "center"
 
 	style.Fill = fill
 	style.Font = font
 	style.Border = border
+	style.Alignment = align
 
 	style.ApplyFill = true
 	style.ApplyFont = true
